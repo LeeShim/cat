@@ -3,10 +3,11 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public class PlayerMove : MonoBehaviour {
-
+	public GameManager gameManager;
 	public float maxSpeed;
 	public float jumpPower;
 	Rigidbody2D rigid;
+	CapsuleCollider2D collider;
 	SpriteRenderer spriteRenderer;
 	Animator anim;
 
@@ -15,6 +16,8 @@ public class PlayerMove : MonoBehaviour {
 		rigid = GetComponent<Rigidbody2D>();
 		spriteRenderer = GetComponent<SpriteRenderer>();
 		anim = GetComponent<Animator>();
+		collider = GetComponent<CapsuleCollider2D>();
+
 	}
 
 	void Update()
@@ -33,7 +36,7 @@ public class PlayerMove : MonoBehaviour {
 		}
 
 		//방향전환
-		if (Input.GetButtonDown("Horizontal"))
+		if (Input.GetButton("Horizontal"))
 		{
 			spriteRenderer.flipX = Input.GetAxisRaw("Horizontal") == -1;
 		}
@@ -73,5 +76,66 @@ public class PlayerMove : MonoBehaviour {
 				}
 			}
 		}
+	}
+	void OnTriggerEnter2D(Collider2D collision)
+	{
+		if (collision.gameObject.tag == "Item")
+		{
+			gameManager.stagePoint += 100;
+			collision.gameObject.SetActive(false);
+		}
+		else if (collision.gameObject.tag == "Finish")
+		{
+			gameManager.NextStage();
+		}
+	}
+
+	void OnAttack(Transform enemy)
+	{
+		gameManager.stagePoint += 100;
+		EnemyMove enemyMove = enemy.GetComponent<EnemyMove>();
+		enemyMove.OnDamaged();
+	}
+
+	void OnCollisionEnter2D(Collision2D collision)
+	{
+		if (collision.gameObject.tag == "Enemy")
+		{
+			if (rigid.velocity.y < 0 && transform.position.y > collision.transform.position.y)
+			{
+				OnAttack(collision.transform);
+			}
+			else 
+				OnDamaged(collision.transform.position);
+		}
+	}
+
+	void OnDamaged(Vector2 targetPos)
+	{
+		gameManager.HealthDown();
+		gameObject.layer = 11;
+
+		spriteRenderer.color = new Color(1, 1, 1, 0.4f);
+
+		int dirc = transform.position.x - targetPos.x > 0 ? 1 : -1;
+		rigid.AddForce(new Vector2(dirc, 1)*7, ForceMode2D.Impulse);
+
+		//
+		anim.SetTrigger("doDamaged");
+		Invoke("OffDamaged", 3);
+	}
+
+	void OffDamaged()
+	{
+		gameObject.layer = 10;
+		spriteRenderer.color = new Color(1, 1, 1, 1);
+	}
+
+	public void OnDie()
+	{
+		spriteRenderer.color = new Color(1, 1, 1, 0.4f);
+		spriteRenderer.flipY = true;
+		collider.enabled = false;
+		rigid.AddForce(Vector2.up * 5, ForceMode2D.Impulse);
 	}
 }
